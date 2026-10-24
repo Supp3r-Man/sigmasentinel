@@ -1,0 +1,24 @@
+id: SS-007
+title: Cron job that downloads or runs from a world-writable path
+status: experimental
+description: Crontab modified with a command using curl, wget, base64 decoding or /tmp-style paths.
+logsource:
+  product: linux
+  category: file_event
+detection:
+  selection:
+    event_type: cron_modified
+    command|contains:
+      - 'curl '
+      - 'wget '
+      - '/tmp/'
+      - '/dev/shm/'
+      - 'base64 -d'
+  filter_backup:
+    command|startswith: '/usr/local/bin/backup'
+  condition: selection and not filter_backup
+level: medium
+attack_technique: T1053.003
+falsepositives:
+  - Health-check pings scheduled with curl
+  - Config management that drops cron files from a temp directory

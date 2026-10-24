@@ -1,0 +1,20 @@
+id: SS-003
+title: Encoded PowerShell command line
+status: experimental
+description: PowerShell started with -e, -enc or -EncodedCommand followed by a base64-looking blob.
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection_img:
+    image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_cmd:
+    command_line|re: '\s-e(nc|ncodedcommand)?\s+[A-Za-z0-9+/=]{12,}'
+  condition: selection_img and selection_cmd
+level: high
+attack_technique: T1059.001
+falsepositives:
+  - Management tooling (SCCM, Intune) that ships scripts as encoded commands
+  - Admin scripts written by someone who read one blog post about obfuscation

@@ -1,0 +1,25 @@
+id: SS-012
+title: Office application spawning a command shell or script host
+status: experimental
+description: Word, Excel or Outlook starting cmd, PowerShell, wscript or mshta.
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection_parent:
+    parent_image|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\outlook.exe'
+  selection_child:
+    image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\wscript.exe'
+      - '\mshta.exe'
+  condition: selection_parent and selection_child
+level: high
+attack_technique: T1204.002
+falsepositives:
+  - Finance macros that shell out to copy or archive files
+  - Legacy add-ins that call cmd.exe for no good reason

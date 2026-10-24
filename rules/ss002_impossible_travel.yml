@@ -1,0 +1,16 @@
+id: SS-002
+title: Impossible travel - same account succeeds from two countries within an hour
+status: experimental
+description: Successful logins for one user from two or more distinct countries inside one hour.
+logsource:
+  category: authentication
+detection:
+  selection:
+    event_type: login_success
+  timeframe: 1h
+  condition: selection | count(distinct geo_country) by user >= 2
+level: high
+attack_technique: T1078
+falsepositives:
+  - Corporate VPN or proxy exit nodes in another country
+  - Travellers whose phone roams while the laptop sits on hotel Wi-Fi

@@ -1,0 +1,20 @@
+id: SS-005
+title: Event log cleared - the digital equivalent of shredding the receipt
+status: experimental
+description: Windows event log cleared via the log-cleared event or via wevtutil / Clear-EventLog.
+logsource:
+  product: windows
+detection:
+  selection_event:
+    event_type: log_cleared
+  selection_cmd:
+    command_line|contains:
+      - 'wevtutil cl'
+      - 'wevtutil.exe cl'
+      - 'Clear-EventLog'
+  condition: selection_event or selection_cmd
+level: high
+attack_technique: T1070.001
+falsepositives:
+  - Golden-image preparation scripts that wipe logs before sealing a VM
+  - Admin clearing a full log to free space (and a ticket to explain it)

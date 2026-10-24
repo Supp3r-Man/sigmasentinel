@@ -1,0 +1,1 @@
+"""SigmaSentinel detection engine."""

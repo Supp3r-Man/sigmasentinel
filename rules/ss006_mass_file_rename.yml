@@ -1,0 +1,17 @@
+id: SS-006
+title: Mass file rename with extension change (ransomware-ish)
+status: experimental
+description: A single host renames 25 or more files to a different extension within one minute.
+logsource:
+  category: file_event
+detection:
+  selection:
+    event_type: file_rename
+    ext_changed: true
+  timeframe: 1m
+  condition: selection | count() by host >= 25
+level: high
+attack_technique: T1486
+falsepositives:
+  - Bulk image or document converters
+  - Backup and sync clients re-suffixing files

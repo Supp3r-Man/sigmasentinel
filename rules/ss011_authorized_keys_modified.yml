@@ -1,0 +1,22 @@
+id: SS-011
+title: SSH authorized_keys modified outside config management
+status: experimental
+description: authorized_keys written by anything other than the approved config management tools.
+logsource:
+  product: linux
+  category: file_event
+detection:
+  selection:
+    event_type: file_modified
+    path|endswith: '/.ssh/authorized_keys'
+  filter_config_mgmt:
+    process:
+      - ansible
+      - puppet
+      - chef-client
+  condition: selection and not filter_config_mgmt
+level: medium
+attack_technique: T1098.004
+falsepositives:
+  - New engineer adding their own key by hand
+  - Break-glass access during an incident

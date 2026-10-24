@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SigmaSentinel - ATT&amp;CK detection heatmap</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --gap: #f0efec; --ring: rgba(11,11,11,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --gap: #383835; --ring: rgba(255,255,255,.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; background: var(--page); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  #summary { margin: 0 0 14px; color: var(--ink2); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  button:focus-visible, .cell:focus-visible { outline: 2px solid #2a78d6; outline-offset: 2px; }
+  #legend { display: flex; align-items: center; gap: 10px; margin-left: 12px; color: var(--ink2); font-size: 12px; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--ring); }
+  .sw.gap { border: 1px dashed var(--muted); }
+  #empty { padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--axis); border-radius: 6px; background: var(--surface); color: var(--ink2); }
+  .wrap { overflow-x: auto; padding-bottom: 8px; }
+  .matrix { display: grid; grid-template-columns: repeat(14, minmax(118px, 1fr)); gap: 2px; min-width: 1700px; }
+  .col { display: flex; flex-direction: column; gap: 2px; }
+  .head { padding: 8px; background: var(--surface); border-bottom: 2px solid var(--axis); font-weight: 600; font-size: 12px; min-height: 48px; }
+  .cell { min-height: 66px; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--ring); font-size: 12px; display: flex; flex-direction: column; gap: 2px; cursor: default; }
+  .cell b { font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+  .cell small { font-size: 11px; opacity: .9; margin-top: auto; }
+  .cell.gap { border: 1px dashed var(--muted); color: var(--ink2); }
+  #tip { position: fixed; z-index: 10; max-width: 380px; padding: 10px 12px; background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; pointer-events: none; }
+  #tip p, #tip ul { margin: 4px 0 0; } #tip ul { padding-left: 18px; }
+  #tip .rule { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--grid); }
+  #tip .rt { font-weight: 600; } #tip .rm { color: var(--ink2); margin-top: 2px; }
+  table { border-collapse: collapse; width: 100%; background: var(--surface); }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); font-size: 13px; }
+  th { color: var(--ink2); font-weight: 600; border-bottom: 1px solid var(--axis); }
+  td.n { font-variant-numeric: tabular-nums; }
+  footer { margin-top: 12px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>SigmaSentinel - ATT&amp;CK detection heatmap</h1>
+<p id="summary"></p>
+<div class="controls">
+  <button data-mode="coverage" aria-pressed="true">Coverage</button>
+  <button data-mode="alerts" aria-pressed="false">Alert count</button>
+  <button id="viewbtn" aria-pressed="false">Table view</button>
+  <span id="legend"></span>
+</div>
+<div id="empty" hidden>No results loaded yet. Run <code>python simulate.py</code> then <code>python evaluate.py</code>; evaluate.py writes its numbers into this file.</div>
+<div class="wrap"><main id="matrix" class="matrix" aria-label="ATT&amp;CK matrix, columns are tactics"></main></div>
+<section id="table" hidden></section>
+<div id="tip" role="tooltip" hidden></div>
+<footer>Subset of Enterprise ATT&amp;CK techniques; sub-techniques roll up to their parent. Dashed cells have no rule. Synthetic data, so scores flatter reality.</footer>
+
+<script>
+const DATA = /*DATA*/{"rules": []}/*END*/;
+
+const TACTICS = [
+  ["Reconnaissance", [["T1595", "Active Scanning"], ["T1589", "Gather Victim Identity Info"]]],
+  ["Resource Development", [["T1583", "Acquire Infrastructure"], ["T1586", "Compromise Accounts"]]],
+  ["Initial Access", [["T1566", "Phishing"], ["T1190", "Exploit Public-Facing App"], ["T1078", "Valid Accounts"], ["T1133", "External Remote Services"]]],
+  ["Execution", [["T1059", "Command and Scripting Interpreter"], ["T1204", "User Execution"], ["T1053", "Scheduled Task/Job"], ["T1047", "WMI"], ["T1569", "System Services"]]],
+  ["Persistence", [["T1053", "Scheduled Task/Job"], ["T1136", "Create Account"], ["T1098", "Account Manipulation"], ["T1547", "Boot or Logon Autostart"], ["T1543", "Create/Modify System Process"], ["T1078", "Valid Accounts"]]],
+  ["Privilege Escalation", [["T1078", "Valid Accounts"], ["T1548", "Abuse Elevation Control"], ["T1068", "Exploitation for Priv Esc"], ["T1053", "Scheduled Task/Job"], ["T1547", "Boot or Logon Autostart"]]],
+  ["Defense Evasion", [["T1070", "Indicator Removal"], ["T1027", "Obfuscated Files or Info"], ["T1562", "Impair Defenses"], ["T1036", "Masquerading"], ["T1218", "System Binary Proxy Execution"], ["T1078", "Valid Accounts"]]],
+  ["Credential Access", [["T1110", "Brute Force"], ["T1003", "OS Credential Dumping"], ["T1555", "Credentials from Password Stores"], ["T1558", "Steal or Forge Kerberos Tickets"], ["T1056", "Input Capture"]]],
+  ["Discovery", [["T1087", "Account Discovery"], ["T1083", "File and Directory Discovery"], ["T1057", "Process Discovery"], ["T1018", "Remote System Discovery"], ["T1046", "Network Service Discovery"]]],
+  ["Lateral Movement", [["T1021", "Remote Services"], ["T1550", "Alternate Authentication Material"], ["T1570", "Lateral Tool Transfer"], ["T1563", "Remote Service Session Hijacking"]]],
+  ["Collection", [["T1005", "Data from Local System"], ["T1560", "Archive Collected Data"], ["T1114", "Email Collection"], ["T1113", "Screen Capture"]]],
+  ["Command and Control", [["T1071", "Application Layer Protocol"], ["T1572", "Protocol Tunneling"], ["T1573", "Encrypted Channel"], ["T1105", "Ingress Tool Transfer"], ["T1090", "Proxy"]]],
+  ["Exfiltration", [["T1041", "Exfiltration Over C2 Channel"], ["T1048", "Exfiltration Over Alt Protocol"], ["T1567", "Exfiltration Over Web Service"]]],
+  ["Impact", [["T1486", "Data Encrypted for Impact"], ["T1490", "Inhibit System Recovery"], ["T1485", "Data Destruction"], ["T1489", "Service Stop"], ["T1496", "Resource Hijacking"]]],
+];
+
+const RAMP = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]; // blue 100..700, 7 picks
+let mode = "coverage", view = "matrix";
+
+const $ = s => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const pct = p => (p == null ? "n/a" : Math.round(p * 100) + "%");
+const dark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+const parent = t => t.split(".")[0];
+const rulesFor = id => DATA.rules.filter(r => parent(r.technique) === id);
+const alertsOf = rules => rules.reduce((n, r) => n + r.alerts, 0);
+const lum = hex => {
+  const c = [1, 3, 5].map(i => { const v = parseInt(hex.slice(i, i + 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const inkOn = hex => (lum(hex) > 0.18 ? "#0b0b0b" : "#ffffff");
+
+const uniqueTechniques = [...new Set(TACTICS.flatMap(t => t[1].map(x => x[0])))];
+const maxAlerts = Math.max(1, ...uniqueTechniques.map(id => alertsOf(rulesFor(id))));
+
+function ramp() { return dark() ? RAMP.slice().reverse() : RAMP; }
+function coverFill() { return dark() ? "#3987e5" : "#2a78d6"; }
+
+function fillFor(rules) {
+  if (!rules.length) return null;
+  if (mode === "coverage") return coverFill();
+  const n = alertsOf(rules), r = ramp();
+  if (!n) return r[0];
+  return r[1 + Math.round(5 * Math.log(1 + n) / Math.log(1 + maxAlerts))];
+}
+
+const tip = $("#tip");
+function tipFor(id, name, rules) {
+  const t = el("div");
+  t.append(el("strong", "", id + " " + name));
+  if (!rules.length) { t.append(el("p", "", "No rule maps here: coverage gap.")); return t; }
+  rules.forEach(r => {
+    const box = el("div", "rule");
+    box.append(el("div", "rt", r.id + " " + r.title));
+    box.append(el("div", "rm", `${r.technique} | ${r.level} | ${r.alerts} alerts (${r.tp} TP / ${r.fp} FP) | precision ${pct(r.precision)} | recall ${pct(r.recall)}`));
+    if (r.missed && r.missed.length) box.append(el("div", "rm", "Missed scenarios: " + r.missed.join(", ")));
+    box.append(el("div", "rm", "False-positive notes:"));
+    const ul = el("ul");
+    (r.falsepositives || []).forEach(f => ul.append(el("li", "", f)));
+    box.append(ul);
+    t.append(box);
+  });
+  return t;
+}
+function showTip(node, x, y) {
+  tip.replaceChildren(node);
+  tip.hidden = false;
+  tip.style.left = Math.max(8, Math.min(x + 14, innerWidth - tip.offsetWidth - 8)) + "px";
+  tip.style.top = Math.max(8, Math.min(y + 14, innerHeight - tip.offsetHeight - 8)) + "px";
+}
+
+function renderMatrix() {
+  const m = $("#matrix");
+  m.replaceChildren();
+  TACTICS.forEach(([tactic, techs]) => {
+    const col = el("div", "col");
+    col.append(el("div", "head", tactic));
+    techs.forEach(([id, name]) => {
+      const rules = rulesFor(id), fill = fillFor(rules);
+      const cell = el("div", "cell" + (fill ? "" : " gap"));
+      cell.tabIndex = 0;
+      if (fill) { cell.style.background = fill; cell.style.color = inkOn(fill); }
+      cell.append(el("b", "", id), el("span", "", name));
+      if (rules.length) cell.append(el("small", "", mode === "alerts" ? alertsOf(rules) + " alerts" : rules.map(r => r.id).join(" ")));
+      else cell.append(el("small", "", "no rule"));
+      cell.setAttribute("aria-label", `${id} ${name}: ${rules.length ? rules.length + " rule(s), " + alertsOf(rules) + " alerts" : "no coverage"}`);
+      const node = () => tipFor(id, name, rules);
+      cell.addEventListener("mouseenter", e => showTip(node(), e.clientX, e.clientY));
+      cell.addEventListener("mousemove", e => showTip(node(), e.clientX, e.clientY));
+      cell.addEventListener("mouseleave", () => { tip.hidden = true; });
+      cell.addEventListener("focus", () => { const b = cell.getBoundingClientRect(); showTip(node(), b.left, b.bottom - 20); });
+      cell.addEventListener("blur", () => { tip.hidden = true; });
+      col.append(cell);
+    });
+    m.append(col);
+  });
+}
+
+function renderLegend() {
+  const lg = $("#legend");
+  lg.replaceChildren();
+  const sw = (bg, cls, label) => { const s = el("span"); const b = el("span", "sw " + cls); if (bg) b.style.background = bg; s.append(b, label); lg.append(s); };
+  if (mode === "coverage") { sw(coverFill(), "", "Covered by a rule"); sw(null, "gap", "Gap"); }
+  else { sw(null, "gap", "No rule"); sw(ramp()[0], "", "0 alerts"); sw(ramp()[3], "", "some"); sw(ramp()[6], "", `${maxAlerts} (max)`); }
+}
+
+function renderTable() {
+  const t = el("table");
+  const head = el("tr");
+  ["Rule", "Title", "Technique", "Level", "Alerts", "TP", "FP", "Precision", "Recall"].forEach(h => head.append(el("th", "", h)));
+  t.append(head);
+  DATA.rules.forEach(r => {
+    const tr = el("tr");
+    [r.id, r.title, r.technique, r.level].forEach(v => tr.append(el("td", "", v)));
+    [r.alerts, r.tp, r.fp, pct(r.precision), pct(r.recall)].forEach(v => tr.append(el("td", "n", String(v))));
+    t.append(tr);
+  });
+  $("#table").replaceChildren(t);
+}
+
+function renderSummary() {
+  const covered = uniqueTechniques.filter(id => rulesFor(id).length).length;
+  const a = alertsOf(DATA.rules), tp = DATA.rules.reduce((n, r) => n + r.tp, 0);
+  $("#summary").textContent = DATA.rules.length
+    ? `${DATA.rules.length} rules cover ${covered} of ${uniqueTechniques.length} techniques shown | ${a} alerts (${tp} TP / ${a - tp} FP)`
+    : "No rules loaded.";
+  $("#empty").hidden = DATA.rules.length > 0;
+}
+
+function render() {
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+  $("#viewbtn").setAttribute("aria-pressed", String(view === "table"));
+  $(".wrap").hidden = view === "table";
+  $("#table").hidden = view !== "table";
+  renderSummary(); renderLegend(); renderMatrix(); renderTable();
+}
+
+document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { mode = b.dataset.mode; render(); }));
+$("#viewbtn").addEventListener("click", () => { view = view === "table" ? "matrix" : "table"; render(); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+id: SS-008
+title: Burst of unusually long DNS queries (tunnelling-ish)
+status: experimental
+description: Five or more DNS queries longer than 60 characters from one host within five minutes.
+logsource:
+  category: dns
+detection:
+  selection:
+    query_length|gt: 60
+  timeframe: 5m
+  condition: selection | count() by host >= 5
+level: medium
+attack_technique: T1071.004
+falsepositives:
+  - Antivirus or reputation services that look up hashes as subdomains
+  - CDN and tracking domains with machine-generated labels

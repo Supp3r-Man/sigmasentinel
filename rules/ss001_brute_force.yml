@@ -1,0 +1,16 @@
+id: SS-001
+title: Brute force - many failed logins for one account from one source
+status: experimental
+description: Ten or more failed logins for the same user from the same IP within five minutes.
+logsource:
+  category: authentication
+detection:
+  selection:
+    event_type: login_failure
+  timeframe: 5m
+  condition: selection | count() by user,src_ip >= 10
+level: medium
+attack_technique: T1110.001
+falsepositives:
+  - Service account with a stale password retrying in a loop
+  - User back from vacation who definitely remembers the password

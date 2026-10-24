@@ -1,0 +1,20 @@
+id: SS-010
+title: Volume shadow copies deleted or recovery disabled
+status: experimental
+description: Command lines that delete shadow copies or disable recovery, a common pre-encryption step.
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection:
+    command_line|contains:
+      - 'vssadmin delete shadows'
+      - 'vssadmin.exe delete shadows'
+      - 'wmic shadowcopy delete'
+      - 'recoveryenabled no'
+  condition: selection
+level: critical
+attack_technique: T1490
+falsepositives:
+  - Backup software pruning old shadow copies
+  - Disk-space cleanup scripts run by admins

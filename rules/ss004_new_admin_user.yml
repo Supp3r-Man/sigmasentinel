@@ -1,0 +1,22 @@
+id: SS-004
+title: New account created and added to an admin group
+status: experimental
+description: The same target account is created and placed in Administrators or Domain Admins within ten minutes.
+logsource:
+  product: windows
+  category: account_management
+detection:
+  sel_create:
+    event_type: account_created
+  sel_admin:
+    event_type: group_add
+    group:
+      - Administrators
+      - Domain Admins
+  timeframe: 10m
+  condition: sel_create or sel_admin | count(distinct event_type) by target_user >= 2
+level: high
+attack_technique: T1136.001
+falsepositives:
+  - Help desk onboarding a contractor admin through the proper ticket
+  - Break-glass account recreation during an outage
